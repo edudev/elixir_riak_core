@@ -14,6 +14,7 @@ defmodule RiakCore.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      applications: [:gen_state_machine],
       extra_applications: [:logger]
     ]
   end
@@ -21,6 +22,9 @@ defmodule RiakCore.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:gen_state_machine, "~> 2.0"},
+
+      {:dialyxir, "~> 0.5", only: [:dev]}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
