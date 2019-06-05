@@ -194,6 +194,7 @@ defmodule RiakCore.VNode do
     @typep states :: :active
     @typep state_fsm :: record(:state_fsm, module: module(), data: VNode.state_vnode())
 
+    @impl GenStateMachine
     @spec init(module()) :: :gen_statem.init_result(states())
     def init(module) do
       case module.init() do
@@ -203,11 +204,13 @@ defmodule RiakCore.VNode do
       end
     end
 
+    @impl GenStateMachine
     @spec terminate(VNode.error_reason(), states(), state_fsm()) :: any()
     def terminate(reason, _state_name, state_fsm(module: module, data: state_vnode)) do
       module.terminate(reason, state_vnode)
     end
 
+    # @impl GenStateMachine
     @spec active(GenStateMachine.event_type(), GenStateMachine.event_content(), state_fsm()) ::
             :gen_statem.event_handler_result(states())
     def active(

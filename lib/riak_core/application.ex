@@ -8,7 +8,7 @@ defmodule RiakCore.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
-      {RiakCore.VNodeSupervisor, []}
+      {RiakCore.VNodeSupervisor, KvVNode}
       # Starts a worker by calling: RiakCore.Worker.start_link(arg)
       # {RiakCore.Worker, arg}
     ]

@@ -7,19 +7,29 @@ defmodule RiakCore.VNodeSupervisor do
 
   use Supervisor
 
+  @typedoc """
+  An atom representing the vnode module.
+  """
+  @type vnode_type() :: module()
+
   @doc """
   Starts this supervisor. This function is best used to make this a child in a supervision tree.
 
-  The only supported argument right now is `[]`.
+  The argument is the module that implements the vnode behaviour.
   """
-  def start_link(init_arg) do
-    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  @spec start_link(vnode_type()) :: Supervisor.on_start()
+  def start_link(vnode_type) do
+    Supervisor.start_link(__MODULE__, vnode_type, name: __MODULE__)
   end
 
   @impl Supervisor
-  def init([]) do
-    children = []
+  @spec init(vnode_type()) :: {:ok, {:supervisor.sup_flags(), [:supervisor.child_spec()]}} | :ignore
+  def init(vnode_type) do
+    children = [
+      {RiakCore.VNodeMaster, vnode_type},
+      {RiakCore.VNodeWorkerSupervisor, vnode_type}
+    ]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 end
