@@ -15,7 +15,8 @@ defmodule RiakCore.MixProject do
   def application do
     [
       applications: [:gen_state_machine],
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {RiakCore.Application, []}
     ]
   end
 
