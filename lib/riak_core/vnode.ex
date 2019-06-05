@@ -2,9 +2,24 @@ defmodule RiakCore.VNode do
   alias RiakCore.VNode
 
   @typedoc """
+  A pid representing an active vnode.
+  """
+  @type vnode() :: pid()
+
+  @typedoc """
   A term representing the current state of the vnode.
   """
   @type state_vnode() :: term()
+
+  @typedoc """
+  A term for a request to the vnode.
+  """
+  @type request() :: term()
+
+  @typedoc """
+  A term for a response from the vnode.
+  """
+  @type response() :: term()
 
   @typedoc """
   A term representing any error that might occur.
@@ -77,13 +92,38 @@ defmodule RiakCore.VNode do
   """
   @callback terminate(reason :: error_reason(), state :: state_vnode()) :: any()
 
+  @doc """
+  Invoked when the vnode receives a command. `command/3` will block until it a reply is given.
+
+  `sender` is a tag referring to the process which called `command`. It contains that process' pid and a reference. `request` is the actual request term made by the caller.
+   `state` is the current state of the `VNode`.
+
+  Returning `{:reply, reply, new_state}` will cause `command/3` to return `reply` and the vnode to change its state from `state` to `new_state`.
+
+  Returning `{:noreply, new_state}` will cause `command/3` to continue waiting and the vnode to change its state from `state` to `new_state`. A reply may later be given by using `reply/2`.
+
+  Returning `{:stop, reason, new_state}` will cause the vnode to exit with reason `reason` and change its state from `state` to `new_state`. Afterwards, `terminate/2` will be called for any cleanup. After the process exits, the caller, waiting for a reply will also exit with an error.
+  """
+  @callback handle_command(
+              sender :: GenServer.from(),
+              request :: request(),
+              state :: state_vnode()
+            ) ::
+              {:reply, reply :: response(), new_state :: state_vnode()}
+              | {:noreply, new_state :: state_vnode()}
+              | {:stop, reason :: error_reason(), new_state :: state_vnode()}
+
   defmacro __using__(_) do
     quote location: :keep do
       @behaviour VNode
 
-      def terminate(_reason, _state_fsm), do: :ok
+      def terminate(_reason, _state_vnode), do: :ok
 
-      defoverridable terminate: 2
+      def handle_command(_sender, _request, state_vnode0) do
+        {:stop, :unknown_command, state_vnode0}
+      end
+
+      defoverridable terminate: 2, handle_command: 3
     end
   end
 
@@ -127,6 +167,22 @@ defmodule RiakCore.VNode do
     GenStateMachine.start_link(__MODULE__.StateMachine, module, options)
   end
 
+  @doc """
+  Makes a command at the given vnode.
+
+  The vnode will then process this request by `handle_command/3`.
+
+  The caller will wait for a reply, which may or may not be given directly as a
+  result from `handle_command/3`. If the given timeout expires, the calling
+  process is terminated.
+
+  The return value from this function is the response from the vnode.
+  """
+  @spec command(vnode(), request(), timeout()) :: response()
+  def command(vnode, request, timeout \\ :infinity) do
+    GenStateMachine.call(vnode, {:command, request}, {:dirty_timeout, timeout})
+  end
+
   # state machine
   defmodule StateMachine do
     @moduledoc false
@@ -150,6 +206,29 @@ defmodule RiakCore.VNode do
     @spec terminate(VNode.error_reason(), states(), state_fsm()) :: any()
     def terminate(reason, _state_name, state_fsm(module: module, data: state_vnode)) do
       module.terminate(reason, state_vnode)
+    end
+
+    @spec active(GenStateMachine.event_type(), GenStateMachine.event_content(), state_fsm()) ::
+            :gen_statem.event_handler_result(states())
+    def active(
+          {:call, from},
+          {:command, request},
+          state_fsm(module: module, data: state_vnode0) = state_fsm0
+        ) do
+      case module.handle_command(from, request, state_vnode0) do
+        {:reply, reply, state_vnode} ->
+          state_fsm = state_fsm(state_fsm0, data: state_vnode)
+          action = {:reply, from, reply}
+          {:keep_state, state_fsm, action}
+
+        {:noreply, state_vnode} ->
+          state_fsm = state_fsm(state_fsm0, data: state_vnode)
+          {:keep_state, state_fsm}
+
+        {:stop, reason, state_vnode} ->
+          state_fsm = state_fsm(state_fsm0, data: state_vnode)
+          {:stop, reason, state_fsm}
+      end
     end
   end
 end
