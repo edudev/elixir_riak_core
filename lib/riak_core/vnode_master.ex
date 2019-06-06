@@ -2,11 +2,15 @@ defmodule RiakCore.VNodeMaster do
   alias RiakCore.VNodeSupervisor
   alias RiakCore.VNodeWorkerSupervisor
 
+  @vnode_count 64
+
   @moduledoc """
   A vnode master is responsible for the consitent hashing algorithm applied to the ring of vnodes.
 
   The server manages all the worker vnodes. It also handles key lookup.
   """
+
+  @type vnode_name() :: term()
 
   use GenServer
 
@@ -45,27 +49,33 @@ defmodule RiakCore.VNodeMaster do
   end
 
   require Record
-  Record.defrecordp(:state, [:vnode_type, :worker_supervisor])
+  Record.defrecordp(:state, [:vnode_type, :worker_supervisor, :vnodes])
 
   @typep state ::
            record(:state,
              vnode_type: VNodeSupervisor.vnode_type(),
-             worker_supervisor: Supervisor.supervisor()
+             worker_supervisor: Supervisor.supervisor(),
+             vnodes: %{required(vnode_name()) => pid()}
            )
 
   @impl GenServer
   @spec init(VNodeSupervisor.vnode_type()) :: {:ok, state :: state(), {:continue, :init}}
   def init(vnode_type) do
     worker_supervisor = VNodeWorkerSupervisor
-    state = state(vnode_type: vnode_type, worker_supervisor: worker_supervisor)
-    {:ok, state, {:continue, :init}}
+
+    vnodes =
+      1..@vnode_count
+      |> Enum.map(&start_vnode(worker_supervisor, &1))
+      |> Map.new()
+
+    state = state(vnode_type: vnode_type, worker_supervisor: worker_supervisor, vnodes: vnodes)
+    {:ok, state}
   end
 
-  @impl GenServer
-  @spec handle_continue(continue :: :init, state :: state()) :: {:noreply, new_state :: state}
-  def handle_continue(:init, state(worker_supervisor: worker_supervisor) = state0) do
-    {:ok, _pid} = VNodeWorkerSupervisor.start_child(worker_supervisor, self())
-    state = state0
-    {:noreply, state}
+  @spec start_vnode(worker_supervisor :: Supervisor.supervisor(), name :: vnode_name()) ::
+          {name :: vnode_name(), pid :: pid()}
+  defp start_vnode(worker_supervisor, name) do
+    {:ok, pid} = VNodeWorkerSupervisor.start_child(worker_supervisor, self())
+    {name, pid}
   end
 end
