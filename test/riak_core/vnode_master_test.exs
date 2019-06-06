@@ -61,7 +61,8 @@ defmodule RiakCore.VNodeMasterTest do
 
   test "can lookup a vnode and use it" do
     {:ok, pid_master} = VNodeMaster.start_link(TestVNode)
-    pid_vnode = VNodeMaster.lookup(pid_master, :one)
+    pids_vnode = VNodeMaster.lookup(pid_master, :one)
+    [pid_vnode] = pids_vnode
 
     assert TestVNode.get(pid_vnode) === 0
   end
@@ -69,8 +70,12 @@ defmodule RiakCore.VNodeMasterTest do
   test "different keys (potentially) go to different vnodes" do
     {:ok, pid_master} = VNodeMaster.start_link(TestVNode)
 
-    pid_vnode1 = VNodeMaster.lookup(pid_master, :one)
-    pid_vnode2 = VNodeMaster.lookup(pid_master, :two)
+    pids_vnode1 = VNodeMaster.lookup(pid_master, :one)
+    pids_vnode2 = VNodeMaster.lookup(pid_master, :two)
+
+    [pid_vnode1] = pids_vnode1
+    [pid_vnode2] = pids_vnode2
+
     assert pid_vnode1 !== pid_vnode2
 
     assert TestVNode.get(pid_vnode1) === 0

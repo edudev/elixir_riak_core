@@ -1,5 +1,13 @@
 defmodule RiakCore.VNode do
   alias RiakCore.VNode
+  alias RiakCore.VNodeSupervisor
+
+  @moduledoc """
+  A vnode is the building block of a riak core cluster.
+
+  The vnode stores state and is located on a particular node. For each request,
+  a coordinator is spawned, which communicates with the vnode.
+  """
 
   @typedoc """
   A pid representing an active vnode.
@@ -162,7 +170,7 @@ defmodule RiakCore.VNode do
   or `:ignore`, the process is terminated and this function returns
   `{:error, reason}` or `:ignore`, respectively.
   """
-  @spec start_link(module(), GenServer.options()) :: GenServer.on_start()
+  @spec start_link(VNodeSupervisor.vnode_type(), GenServer.options()) :: GenServer.on_start()
   def start_link(module, options \\ []) do
     GenStateMachine.start_link(__MODULE__.StateMachine, module, options)
   end
@@ -178,7 +186,7 @@ defmodule RiakCore.VNode do
 
   The return value from this function is the response from the vnode.
   """
-  @spec command(vnode(), request(), timeout()) :: response() | no_return()
+  @spec command(vnode(), request(), timeout()) :: response()
   def command(vnode, request, timeout \\ :infinity) do
     GenStateMachine.call(vnode, {:command, request}, timeout)
   end
@@ -192,10 +200,11 @@ defmodule RiakCore.VNode do
     Record.defrecordp(:state_fsm, [:module, :data])
 
     @typep states :: :active
-    @typep state_fsm :: record(:state_fsm, module: module(), data: VNode.state_vnode())
+    @typep state_fsm ::
+             record(:state_fsm, module: VNodeSupervisor.vnode_type(), data: VNode.state_vnode())
 
     @impl GenStateMachine
-    @spec init(module()) :: :gen_statem.init_result(states())
+    @spec init(VNodeSupervisor.vnode_type()) :: :gen_statem.init_result(states())
     def init(module) do
       case module.init() do
         {:ok, state_vnode} -> {:ok, :active, state_fsm(module: module, data: state_vnode)}

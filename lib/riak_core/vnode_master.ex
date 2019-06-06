@@ -57,15 +57,15 @@ defmodule RiakCore.VNodeMaster do
   end
 
   @doc """
-  Looks up a given key in the hash ring and returns the PID of the vnode responsible for it.
+  Looks up a given key in the hash ring and returns the PIDs of the vnodes responsible for it.
 
   ## Return values
 
-  The return value is a `pid` of a `VNode`.
+  The return value is a list of `pid`s of a `VNode`.
 
   Upon timeout, or if the master crashes/has crashed, this call will result in an error.
   """
-  @spec lookup(GenServer.server(), vnode_key(), timeout()) :: pid()
+  @spec lookup(GenServer.server(), vnode_key(), timeout()) :: nonempty_list(pid())
   def lookup(vnode_master, key, timeout \\ 5000) do
     GenServer.call(vnode_master, {:lookup, key}, timeout)
   end
@@ -123,11 +123,11 @@ defmodule RiakCore.VNodeMaster do
 
   @impl GenServer
   @spec handle_call(request :: {:lookup, key :: vnode_key}, GenServer.from(), state :: state()) ::
-          {:reply, pid :: pid(), new_state :: state()}
+          {:reply, pids :: nonempty_list(pid()), new_state :: state()}
   def handle_call({:lookup, key}, _from, state(hash_ring: hash_ring, vnodes: vnodes) = state0) do
     node = hash_ring |> HashRing.key_to_node(key)
     pid = vnodes |> Map.fetch!(node)
 
-    {:reply, pid, state0}
+    {:reply, [pid], state0}
   end
 end
