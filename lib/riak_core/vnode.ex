@@ -4,7 +4,7 @@ defmodule RiakCore.VNode do
   @typedoc """
   A pid representing an active vnode.
   """
-  @type vnode() :: pid()
+  @type vnode() :: GenServer.server()
 
   @typedoc """
   A term representing the current state of the vnode.
@@ -178,9 +178,9 @@ defmodule RiakCore.VNode do
 
   The return value from this function is the response from the vnode.
   """
-  @spec command(vnode(), request(), timeout()) :: response()
+  @spec command(vnode(), request(), timeout()) :: response() | no_return()
   def command(vnode, request, timeout \\ :infinity) do
-    GenStateMachine.call(vnode, {:command, request}, {:dirty_timeout, timeout})
+    GenStateMachine.call(vnode, {:command, request}, timeout)
   end
 
   # state machine

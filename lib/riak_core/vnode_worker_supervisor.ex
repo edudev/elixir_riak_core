@@ -1,4 +1,5 @@
 defmodule RiakCore.VNodeWorkerSupervisor do
+  alias RiakCore.VNodeSupervisor
   alias RiakCore.VNode
 
   @moduledoc """
@@ -17,25 +18,25 @@ defmodule RiakCore.VNodeWorkerSupervisor do
     DynamicSupervisor.start_link(__MODULE__, vnode_type, name: __MODULE__)
   end
 
-
   @doc """
   Starts a vnode under this supervisor
   """
-  @spec start_child(Supervisor.supervisor(), GenServer.server()) :: DynamicSupervisor.on_start_child()
+  @spec start_child(Supervisor.supervisor(), GenServer.server()) ::
+          DynamicSupervisor.on_start_child()
   def start_child(supervisor, vnode_master) do
     spec = %{
-        id: VNode,
-        start: {VNode, :start_link, []},
-        type: :worker,
-        restart: :permanent,
+      id: VNode,
+      start: {VNode, :start_link, []},
+      type: :worker,
+      restart: :permanent
     }
 
     DynamicSupervisor.start_child(supervisor, spec)
   end
 
   @impl DynamicSupervisor
-  @spec init(VNodeSupervisor.vnode_type()) :: {:ok, {:supervisor.sup_flags(), [:supervisor.child_spec()]}} | :ignore
+  @spec init(VNodeSupervisor.vnode_type()) :: {:ok, DynamicSupervisor.sup_flags()} | :ignore
   def init(vnode_type) do
-    DynamicSupervisor.init(strategy: :one_for_one, name: __MODULE__, extra_arguments: [vnode_type])
+    DynamicSupervisor.init(strategy: :one_for_one, extra_arguments: [vnode_type])
   end
 end

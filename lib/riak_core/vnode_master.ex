@@ -44,29 +44,17 @@ defmodule RiakCore.VNodeMaster do
     GenServer.start_link(__MODULE__, vnode_type, options)
   end
 
-  @doc """
-  Makes a command at the given vnode.
-
-  The vnode will then process this request by `handle_command/3`.
-
-  The caller will wait for a reply, which may or may not be given directly as a
-  result from `handle_command/3`. If the given timeout expires, the calling
-  process is terminated.
-
-  The return value from this function is the response from the vnode.
-  """
-  # @spec command(vnode(), request(), timeout()) :: response()
-  def command(vnode, request, timeout \\ :infinity) do
-    GenStateMachine.call(vnode, {:command, request}, {:dirty_timeout, timeout})
-  end
-
   require Record
   Record.defrecordp(:state, [:vnode_type, :worker_supervisor])
 
-  @typep state :: record(:state, vnode_type: VNodeSupervisor.vnode_type(), worker_supervisor: Supervisor.supervisor())
+  @typep state ::
+           record(:state,
+             vnode_type: VNodeSupervisor.vnode_type(),
+             worker_supervisor: Supervisor.supervisor()
+           )
 
   @impl GenServer
-  @spec init(VNodeSupervisor.vnode_type()) :: {:ok, state :: state()}
+  @spec init(VNodeSupervisor.vnode_type()) :: {:ok, state :: state(), {:continue, :init}}
   def init(vnode_type) do
     worker_supervisor = VNodeWorkerSupervisor
     state = state(vnode_type: vnode_type, worker_supervisor: worker_supervisor)

@@ -23,7 +23,8 @@ defmodule RiakCore.VNodeSupervisor do
   end
 
   @impl Supervisor
-  @spec init(vnode_type()) :: {:ok, {:supervisor.sup_flags(), [:supervisor.child_spec()]}} | :ignore
+  @spec init(vnode_type()) ::
+          {:ok, {:supervisor.sup_flags(), [:supervisor.child_spec()]}} | :ignore
   def init(vnode_type) do
     children = [
       {RiakCore.VNodeMaster, vnode_type},
