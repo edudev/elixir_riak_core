@@ -27,10 +27,10 @@ defmodule RiakCore.VNodeSupervisor do
           {:ok, {:supervisor.sup_flags(), [:supervisor.child_spec()]}} | :ignore
   def init(vnode_type) do
     children = [
-      {RiakCore.VNodeMaster, vnode_type},
-      {RiakCore.VNodeWorkerSupervisor, vnode_type}
+      {RiakCore.VNodeWorkerSupervisor, vnode_type},
+      {RiakCore.VNodeMaster, vnode_type}
     ]
 
-    Supervisor.init(children, strategy: :rest_for_one)
+    Supervisor.init(children, strategy: :one_for_all)
   end
 end

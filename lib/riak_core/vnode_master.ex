@@ -64,7 +64,6 @@ defmodule RiakCore.VNodeMaster do
   @impl GenServer
   @spec handle_continue(continue :: :init, state :: state()) :: {:noreply, new_state :: state}
   def handle_continue(:init, state(worker_supervisor: worker_supervisor) = state0) do
-    Process.sleep(100)
     {:ok, _pid} = VNodeWorkerSupervisor.start_child(worker_supervisor, self())
     state = state0
     {:noreply, state}
