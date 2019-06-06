@@ -46,7 +46,7 @@ defmodule RiakCore.Coordinator do
     @typep state_fsm ::
              record(:state_fsm,
                module: VNodeSupervisor.vnode_type(),
-               key: VNodeMaster.key(),
+               key: VNodeMaster.vnode_key(),
                request_vnode: VNode.request(),
                vnode_preflist: [pid()],
                from: GenServer.from(),

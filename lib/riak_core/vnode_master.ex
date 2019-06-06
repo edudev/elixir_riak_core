@@ -82,7 +82,7 @@ defmodule RiakCore.VNodeMaster do
            )
 
   @impl GenServer
-  @spec init(VNodeSupervisor.vnode_type()) :: {:ok, state :: state(), {:continue, :init}}
+  @spec init(VNodeSupervisor.vnode_type()) :: {:ok, state :: state()}
   def init(vnode_type) do
     worker_supervisor = VNodeWorkerSupervisor
     hash_ring = build_ring()
@@ -99,7 +99,7 @@ defmodule RiakCore.VNodeMaster do
     {:ok, state}
   end
 
-  @spec start_vnode(worker_supervisor :: Supervisor.supervisor(), [vnode_name()]) :: %{
+  @spec start_vnodes(worker_supervisor :: Supervisor.supervisor(), [vnode_name()]) :: %{
           required(vnode_name()) => pid()
         }
   defp start_vnodes(worker_supervisor, vnode_names) do
