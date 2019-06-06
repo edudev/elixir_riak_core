@@ -58,4 +58,36 @@ defmodule RiakCore.VNodeMasterTest do
   @tag todo: true, skip: true
   test "the master starts a total of 64 vnodes" do
   end
+
+  test "can lookup a vnode and use it" do
+    {:ok, pid_master} = VNodeMaster.start_link(TestVNode)
+    pid_vnode = VNodeMaster.lookup(pid_master, :one)
+
+    assert TestVNode.get(pid_vnode) === 0
+  end
+
+  test "different keys (potentially) go to different vnodes" do
+    {:ok, pid_master} = VNodeMaster.start_link(TestVNode)
+
+    pid_vnode1 = VNodeMaster.lookup(pid_master, :one)
+    pid_vnode2 = VNodeMaster.lookup(pid_master, :two)
+    assert pid_vnode1 !== pid_vnode2
+
+    assert TestVNode.get(pid_vnode1) === 0
+    assert TestVNode.increment(pid_vnode1) === 0
+    assert TestVNode.get(pid_vnode1) === 1
+
+    assert TestVNode.get(pid_vnode2) === 0
+    assert TestVNode.increment(pid_vnode2) === 0
+    assert TestVNode.increment(pid_vnode2) === 1
+    assert TestVNode.get(pid_vnode2) === 2
+  end
+
+  @tag todo: true, skip: true
+  test "a key is lookup up always to the same vnode" do
+  end
+
+  @tag todo: true, skip: true
+  test "after a vnode crashes, it loses its state" do
+  end
 end

@@ -24,6 +24,7 @@ defmodule RiakCore.MixProject do
   defp deps do
     [
       {:gen_state_machine, "~> 2.0"},
+      {:libring, "~> 1.4"},
       {:dialyxir, "~> 0.5", only: [:dev]},
       {:ex_doc, "~> 0.20", only: [:dev]}
       # {:dep_from_hexpm, "~> 0.3.0"},

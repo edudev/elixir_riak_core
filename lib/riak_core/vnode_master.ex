@@ -10,7 +10,15 @@ defmodule RiakCore.VNodeMaster do
   The server manages all the worker vnodes. It also handles key lookup.
   """
 
+  @typedoc """
+  A term representing the vnode ID. We use integers, but it doesn't really matter.
+  """
   @type vnode_name() :: term()
+
+  @typedoc """
+  A term representing keys in the cluster.
+  """
+  @type vnode_key() :: term()
 
   use GenServer
 
@@ -48,13 +56,28 @@ defmodule RiakCore.VNodeMaster do
     GenServer.start_link(__MODULE__, vnode_type, options)
   end
 
+  @doc """
+  Looks up a given key in the hash ring and returns the PID of the vnode responsible for it.
+
+  ## Return values
+
+  The return value is a `pid` of a `VNode`.
+
+  Upon timeout, or if the master crashes/has crashed, this call will result in an error.
+  """
+  @spec lookup(GenServer.server(), vnode_key(), timeout()) :: pid()
+  def lookup(vnode_master, key, timeout \\ 5000) do
+    GenServer.call(vnode_master, {:lookup, key}, timeout)
+  end
+
   require Record
-  Record.defrecordp(:state, [:vnode_type, :worker_supervisor, :vnodes])
+  Record.defrecordp(:state, [:vnode_type, :worker_supervisor, :hash_ring, :vnodes])
 
   @typep state ::
            record(:state,
              vnode_type: VNodeSupervisor.vnode_type(),
              worker_supervisor: Supervisor.supervisor(),
+             hash_ring: HashRing.t(),
              vnodes: %{required(vnode_name()) => pid()}
            )
 
@@ -62,14 +85,33 @@ defmodule RiakCore.VNodeMaster do
   @spec init(VNodeSupervisor.vnode_type()) :: {:ok, state :: state(), {:continue, :init}}
   def init(vnode_type) do
     worker_supervisor = VNodeWorkerSupervisor
+    hash_ring = build_ring()
+    vnodes = start_vnodes(worker_supervisor, hash_ring |> HashRing.nodes())
 
-    vnodes =
-      1..@vnode_count
-      |> Enum.map(&start_vnode(worker_supervisor, &1))
-      |> Map.new()
+    state =
+      state(
+        vnode_type: vnode_type,
+        worker_supervisor: worker_supervisor,
+        hash_ring: hash_ring,
+        vnodes: vnodes
+      )
 
-    state = state(vnode_type: vnode_type, worker_supervisor: worker_supervisor, vnodes: vnodes)
     {:ok, state}
+  end
+
+  @spec start_vnode(worker_supervisor :: Supervisor.supervisor(), [vnode_name()]) :: %{
+          required(vnode_name()) => pid()
+        }
+  defp start_vnodes(worker_supervisor, vnode_names) do
+    vnode_names
+    |> Enum.map(&start_vnode(worker_supervisor, &1))
+    |> Map.new()
+  end
+
+  @spec build_ring() :: HashRing.t()
+  defp build_ring() do
+    vnode_names = 1..@vnode_count |> Enum.to_list()
+    HashRing.new() |> HashRing.add_nodes(vnode_names)
   end
 
   @spec start_vnode(worker_supervisor :: Supervisor.supervisor(), name :: vnode_name()) ::
@@ -77,5 +119,15 @@ defmodule RiakCore.VNodeMaster do
   defp start_vnode(worker_supervisor, name) do
     {:ok, pid} = VNodeWorkerSupervisor.start_child(worker_supervisor, self())
     {name, pid}
+  end
+
+  @impl GenServer
+  @spec handle_call(request :: {:lookup, key :: vnode_key}, GenServer.from(), state :: state()) ::
+          {:reply, pid :: pid(), new_state :: state()}
+  def handle_call({:lookup, key}, _from, state(hash_ring: hash_ring, vnodes: vnodes) = state0) do
+    node = hash_ring |> HashRing.key_to_node(key)
+    pid = vnodes |> Map.fetch!(node)
+
+    {:reply, pid, state0}
   end
 end

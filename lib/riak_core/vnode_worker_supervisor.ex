@@ -23,7 +23,7 @@ defmodule RiakCore.VNodeWorkerSupervisor do
   """
   @spec start_child(Supervisor.supervisor(), GenServer.server()) ::
           DynamicSupervisor.on_start_child()
-  def start_child(supervisor, vnode_master) do
+  def start_child(supervisor, _vnode_master) do
     spec = %{
       id: VNode,
       start: {VNode, :start_link, []},
